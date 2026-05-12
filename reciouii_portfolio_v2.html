@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Mohamed Reciouii — Short-Form Video Editor</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,900;1,400;1,700&family=Outfit:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+/* ════════════════════════════════════════════
+   VARIABLES & RESET
+════════════════════════════════════════════ */
+:root{
+  --bg:#060606; --surface:#0d0d0d; --card:#111; --card2:#161616;
+  --border:#1c1c1c; --border2:#262626; --border3:#303030;
+  --text:#edeae5; --muted:#7a7a7a; --dim:#3a3a3a;
+  --gold:#c9a76b; --gold2:#a07840; --gold3:#6b4e20;
+  --gold-glow:rgba(201,167,107,.09);
+  --teal:#3ecfb2; --red:#e05252; --green:#4fcb7d; --purple:#9b7ee8;
+  --white:#f8f5f0;
+  --ff-display:'Playfair Display',Georgia,serif;
+  --ff-body:'Outfit',sans-serif;
+  --ff-mono:'JetBrains Mono',monospace;
+  --edit-outline:rgba(201,167,107,.35);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;font-size:16px}
+body{background:var(--bg);color:var(--text);font-family:var(--ff-body);overflow-x:hidden;line-height:1.6}
+img{max-width:100%;display:block}
+a{color:inherit;text-decoration:none}
+button{cursor:pointer;border:none;background:none;font-family:inherit}
+
+/* GRAIN */
+body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.04'/%3E%3C/svg%3E");pointer-events:none;z-index:9999;opacity:.22;mix-blend-mode:overlay}
+
+/* ════════════════════════════════════════════
+   EDIT MODE
+════════════════════════════════════════════ */
+.edit-bar{position:fixed;bottom:28px;right:28px;z-index:10000;display:flex;flex-direction:column;gap:8px;align-items:flex-end}
+.edit-btn{display:flex;align-items:center;gap:8px;padding:11px 20px;border-radius:2px;font-family:var(--ff-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;font-weight:500;transition:all .2s;white-space:nowrap}
+.edit-toggle{background:var(--gold);color:#000}
+.edit-toggle:hover{background:#d4b47e}
+.edit-toggle.active{background:var(--teal);color:#000}
+.edit-save{background:var(--card2);border:.5px solid var(--border2);color:var(--muted);display:none}
+.edit-save:hover{color:var(--text);border-color:var(--border3)}
+.edit-save.visible{display:flex}
+body.edit-mode [contenteditable]{outline:1px dashed var(--edit-outline) !important;border-radius:2px;padding:2px 4px;cursor:text;min-width:20px;display:inline-block}
+body.edit-mode [contenteditable]:focus{outline:1px solid var(--gold) !important;background:rgba(201,167,107,.04)}
+body.edit-mode .video-slot{cursor:pointer}
+body.edit-mode .video-slot:hover{border-color:var(--gold2) !important}
+.edit-hint{display:none;font-family:var(--ff-mono);font-size:10px;color:var(--muted);text-align:right;padding:6px 0}
+body.edit-mode .edit-hint{display:block}
+
+/* ════════════════════════════════════════════
+   NAV
+════════════════════════════════════════════ */
+nav{position:fixed;top:0;left:0;right:0;z-index:1000;display:flex;justify-content:space-between;align-items:center;padding:18px 6vw;background:rgba(6,6,6,.82);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:.5px solid rgba(28,28,28,.6);transition:padding .3s}
+.nav-logo{font-family:var(--ff-display);font-size:19px;font-weight:400;letter-spacing:.02em}
+.nav-logo em{font-style:italic;color:var(--gold)}
+.nav-links{display:flex;gap:32px;align-items:center}
+.nav-link{font-family:var(--ff-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);transition:color .2s}
+.nav-link:hover{color:var(--gold)}
+.nav-cta{padding:8px 20px;border:.5px solid var(--gold3);color:var(--gold);font-family:var(--ff-mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;transition:all .2s;border-radius:1px}
+.nav-cta:hover{background:var(--gold-glow);border-color:var(--gold2)}
+
+/* ════════════════════════════════════════════
+   HERO
+════════════════════════════════════════════ */
+.hero{min-height:100vh;display:flex;flex-direction:column;justify-content:center;padding:120px 6vw 80px;position:relative;overflow:hidden}
+.hero-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(201,167,107,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(201,167,107,.025) 1px,transparent 1px);background-size:56px 56px;mask-image:radial-gradient(ellipse 80% 80% at center,black 0%,transparent 100%)}
+.hero-glow1{position:absolute;top:-100px;right:-100px;width:600px;height:600px;background:radial-gradient(circle,rgba(201,167,107,.06) 0%,transparent 65%);pointer-events:none}
+.hero-glow2{position:absolute;bottom:-80px;left:-80px;width:400px;height:400px;background:radial-gradient(circle,rgba(62,207,178,.03) 0%,transparent 65%);pointer-events:none}
+.hero-line{width:36px;height:1px;background:var(--gold);margin-bottom:32px;animation:expandW .8s ease both}
+.hero-eyebrow{font-family:var(--ff-mono);font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--gold);margin-bottom:28px;animation:fadeUp .8s .1s ease both;opacity:0}
+.hero-h1{font-family:var(--ff-display);font-size:clamp(56px,9vw,116px);font-weight:900;line-height:.88;letter-spacing:-.025em;color:var(--white);margin-bottom:10px;animation:fadeUp .8s .2s ease both;opacity:0}
+.hero-h1 em{font-style:italic;color:var(--gold);font-weight:400}
+.hero-tagline{font-family:var(--ff-display);font-size:clamp(18px,3vw,32px);font-weight:300;font-style:italic;color:var(--muted);margin-bottom:36px;animation:fadeUp .8s .3s ease both;opacity:0}
+.hero-desc{max-width:540px;font-size:15px;font-weight:300;color:var(--muted);line-height:1.85;margin-bottom:52px;animation:fadeUp .8s .4s ease both;opacity:0}
+.hero-tools{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:48px;animation:fadeUp .8s .5s ease both;opacity:0}
+.tool-badge{font-family:var(--ff-mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;padding:5px 12px;border:.5px solid var(--border2);color:var(--muted);border-radius:1px}
+.tool-badge.gold{border-color:var(--gold3);color:var(--gold);background:var(--gold-glow)}
+.hero-actions{display:flex;gap:14px;flex-wrap:wrap;animation:fadeUp .8s .6s ease both;opacity:0}
+.btn-gold{display:inline-flex;align-items:center;gap:10px;padding:14px 30px;background:var(--gold);color:#000;font-family:var(--ff-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:500;border-radius:1px;transition:all .2s}
+.btn-gold:hover{background:#d4b47e;transform:translateY(-1px)}
+.btn-outline{display:inline-flex;align-items:center;gap:10px;padding:13px 30px;border:.5px solid var(--border2);color:var(--muted);font-family:var(--ff-mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;border-radius:1px;transition:all .2s}
+.btn-outline:hover{border-color:var(--gold3);color:var(--gold)}
+.hero-scroll-indicator{position:absolute;bottom:40px;right:6vw;display:flex;flex-direction:column;align-items:center;gap:10px;font-family:var(--ff-mono);font-size:9px;letter-spacing:.15em;text-transform:uppercase;color:var(--dim);animation:fadeUp 1s .9s ease both;opacity:0}
+.hero-scroll-indicator::after{content:'';width:1px;height:48px;background:linear-gradient(var(--gold3),transparent);animation:pulse 2s ease infinite}
+
+/* ════════════════════════════════════════════
+   STATS
+════════════════════════════════════════════ */
+.stats-bar{background:var(--surface);border-top:.5px solid var(--border);border-bottom:.5px solid var(--border);padding:0}
+.stats-inner{display:grid;grid-template-columns:repeat(5,1fr);background:var(--border)}
+.stat-cell{background:var(--surface);padding:32px 24px;text-align:center;position:relative;transition:background .3s}
+.stat-cell:hover{background:var(--card)}
+.stat-cell+.stat-cell{border-left:.5px solid var(--border)}
+.stat-n{font-family:var(--ff-display);font-size:46px;font-weight:900;line-height:1;color:var(--gold);margin-bottom:6px}
+.stat-l{font-family:var(--ff-mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+
+/* ════════════════════════════════════════════
+   SECTIONS
+════════════════════════════════════════════ */
+section{padding:100px 6vw}
+section.dark{background:var(--surface);border-top:.5px solid var(--border);border-bottom:.5px solid var(--border)}
+.sec-eyebrow{font-family:var(--ff-mono);font-size:9px;letter-spacing:.22em;text-transform:uppercase;color:var(--gold);margin-bottom:14px;display:flex;align-items:center;gap:12px}
+.sec-eyebrow::before{content:'';display:block;width:24px;height:1px;background:var(--gold)}
+.sec-title{font-family:var(--ff-display);font-size:clamp(36px,6vw,72px);font-weight:900;line-height:.92;color:var(--white);margin-bottom:60px;letter-spacing:-.02em}
+.sec-title em{font-style:italic;color:var(--gold);font-weight:400}
+
+/* ════════════════════════════════════════════
+   PORTFOLIO / VIDEO SECTION
+════════════════════════════════════════════ */
+.portfolio-intro{max-width:560px;font-size:15px;font-weight:300;color:var(--muted);line-height:1.8;margin-bottom:48px;margin-top:-32px}
+.portfolio-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
+.portfolio-grid.row2{grid-template-columns:repeat(3,1fr)}
+.port-card{background:var(--card);border:.5px solid var(--border2);overflow:hidden;position:relative;transition:border-color .3s,transform .3s}
+.port-card:hover{border-color:var(--gold3);transform:translateY(-3px)}
+.video-slot{height:200px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;border-bottom:.5px solid var(--border);background:var(--surface);position:relative;overflow:hidden;cursor:default;transition:background .3s}
+.video-slot iframe{position:absolute;inset:0;width:100%;height:100%;border:none}
+.video-slot .vs-placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;height:100%;width:100%}
+.video-slot .vs-icon{font-size:28px;opacity:.35}
+.video-slot .vs-text{font-family:var(--ff-mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+.video-slot .vs-add{display:none;font-family:var(--ff-mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--gold);padding:6px 12px;border:.5px solid var(--gold3);border-radius:1px;background:var(--gold-glow);margin-top:4px}
+body.edit-mode .video-slot .vs-add{display:block}
+body.edit-mode .video-slot .vs-text{display:none}
+.port-info{padding:16px 18px}
+.port-type{font-family:var(--ff-mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);margin-bottom:6px}
+.port-title{font-family:var(--ff-display);font-size:18px;font-weight:600;color:var(--white);margin-bottom:8px;line-height:1.2}
+.port-metrics{display:flex;gap:14px;flex-wrap:wrap}
+.port-metric{font-family:var(--ff-mono);font-size:9px;color:var(--dim)}
+.port-metric span{color:var(--teal);font-weight:500}
+
+/* ════════════════════════════════════════════
+   SERVICES
+════════════════════════════════════════════ */
+.services-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border)}
+.svc-card{background:var(--card);padding:40px 32px;position:relative;overflow:hidden;transition:background .3s}
+.svc-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--gold),transparent);opacity:0;transition:opacity .3s}
+.svc-card:hover{background:var(--card2)}
+.svc-card:hover::before{opacity:1}
+.svc-card.featured{border-top:2px solid var(--gold)}
+.svc-card.featured::before{opacity:1}
+.svc-num{font-family:var(--ff-mono);font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);margin-bottom:20px}
+.svc-name{font-family:var(--ff-display);font-size:26px;font-weight:600;color:var(--white);margin-bottom:4px;line-height:1.1}
+.svc-price{font-family:var(--ff-mono);font-size:12px;color:var(--gold);margin-bottom:18px}
+.svc-desc{font-size:13px;font-weight:300;color:var(--muted);line-height:1.7;margin-bottom:22px}
+.svc-list{list-style:none}
+.svc-list li{font-size:12px;color:var(--dim);padding:5px 0;border-bottom:.5px solid var(--border);display:flex;gap:9px}
+.svc-list li:last-child{border:none}
+.svc-list li::before{content:'→';color:var(--gold);font-size:10px;flex-shrink:0;margin-top:2px}
+.svc-tag{display:inline-block;font-family:var(--ff-mono);font-size:8px;letter-spacing:.12em;text-transform:uppercase;padding:3px 9px;background:var(--gold-glow);border:.5px solid var(--gold3);color:var(--gold);margin-bottom:10px;border-radius:1px}
+
+/* ════════════════════════════════════════════
+   TESTIMONIALS
+════════════════════════════════════════════ */
+.testimonials-header{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:20px;margin-bottom:36px}
+.testi-filters{display:flex;gap:8px;flex-wrap:wrap}
+.testi-filter{font-family:var(--ff-mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;padding:6px 14px;border:.5px solid var(--border2);color:var(--muted);border-radius:20px;transition:all .2s}
+.testi-filter:hover,.testi-filter.active{border-color:var(--gold3);color:var(--gold);background:var(--gold-glow)}
+.testi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border)}
+.testi-card{background:var(--card);padding:36px 32px;position:relative;overflow:hidden;transition:background .3s}
+.testi-card:hover{background:var(--card2)}
+.testi-card[data-market]{transition:opacity .3s,transform .3s}
+.testi-card.hidden{display:none}
+.testi-ghost{position:absolute;top:12px;left:24px;font-family:var(--ff-display);font-size:100px;font-weight:900;line-height:1;color:var(--gold);opacity:.05;pointer-events:none}
+.testi-stars{display:flex;gap:3px;margin-bottom:18px}
+.testi-star{color:var(--gold);font-size:13px}
+.testi-text{font-family:var(--ff-display);font-size:16px;font-weight:400;font-style:italic;line-height:1.65;color:var(--text);margin-bottom:24px;position:relative;z-index:1}
+.testi-divider{width:28px;height:1px;background:var(--gold3);margin-bottom:18px}
+.testi-author{font-family:var(--ff-mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:3px}
+.testi-role{font-size:12px;color:var(--dim);margin-bottom:10px}
+.testi-market{display:inline-flex;align-items:center;gap:5px;font-family:var(--ff-mono);font-size:8px;letter-spacing:.1em;text-transform:uppercase;padding:3px 9px;border:.5px solid var(--border2);color:var(--dim);border-radius:20px}
+
+/* ════════════════════════════════════════════
+   MARKETS
+════════════════════════════════════════════ */
+.markets-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);margin-bottom:40px}
+.mkt-card{background:var(--card);padding:28px 24px;transition:background .3s}
+.mkt-card:hover{background:var(--card2)}
+.mkt-flag{font-size:28px;margin-bottom:12px}
+.mkt-name{font-family:var(--ff-display);font-size:19px;font-weight:600;color:var(--white);margin-bottom:4px}
+.mkt-desc{font-size:12px;color:var(--dim);line-height:1.55}
+.mkt-currency{font-family:var(--ff-mono);font-size:9px;color:var(--gold);margin-top:10px;letter-spacing:.1em}
+
+/* ════════════════════════════════════════════
+   FIVERR
+════════════════════════════════════════════ */
+.fiverr-wrap{max-width:700px}
+.fiverr-card{border:.5px solid var(--border2);padding:36px;background:var(--card);position:relative;overflow:hidden;border-radius:2px}
+.fiverr-card::after{content:'';position:absolute;top:0;right:0;width:250px;height:250px;background:radial-gradient(circle,var(--gold-glow) 0%,transparent 70%);pointer-events:none}
+.fv-top{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px;margin-bottom:28px}
+.fv-title{font-family:var(--ff-display);font-size:24px;font-weight:600;color:var(--white);margin-bottom:3px}
+.fv-sub{font-family:var(--ff-mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.fv-badge{font-family:var(--ff-mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;padding:5px 12px;background:var(--gold-glow);border:.5px solid var(--gold3);color:var(--gold)}
+.fv-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border);margin-bottom:24px}
+.fv-stat{background:var(--card2);padding:18px 14px;text-align:center}
+.fv-stat-n{font-family:var(--ff-display);font-size:30px;font-weight:700;line-height:1;margin-bottom:4px;color:var(--white)}
+.fv-stat-l{font-family:var(--ff-mono);font-size:8px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.fv-skills{display:flex;flex-wrap:wrap;gap:7px}
+.fv-skill{font-family:var(--ff-mono);font-size:9px;letter-spacing:.08em;padding:4px 11px;border:.5px solid var(--border2);color:var(--dim);border-radius:1px}
+
+/* ════════════════════════════════════════════
+   PROCESS
+════════════════════════════════════════════ */
+.process-list{max-width:740px}
+.process-item{display:flex;gap:28px;padding:32px 0;border-bottom:.5px solid var(--border);align-items:flex-start}
+.process-item:last-child{border:none}
+.proc-n{font-family:var(--ff-display);font-size:56px;font-weight:900;color:var(--border2);line-height:1;flex-shrink:0;width:70px;text-align:right;transition:color .3s}
+.process-item:hover .proc-n{color:var(--gold3)}
+.proc-body{padding-top:8px}
+.proc-title{font-family:var(--ff-display);font-size:22px;font-weight:600;color:var(--white);margin-bottom:6px}
+.proc-desc{font-size:14px;font-weight:300;color:var(--muted);line-height:1.75}
+
+/* ════════════════════════════════════════════
+   CTA
+════════════════════════════════════════════ */
+.cta-section{text-align:center;padding:120px 6vw;background:var(--surface);border-top:.5px solid var(--border);position:relative;overflow:hidden}
+.cta-bg{position:absolute;inset:0;background:radial-gradient(ellipse 70% 60% at 50% 50%,rgba(201,167,107,.05) 0%,transparent 70%)}
+.cta-grid2{position:absolute;inset:0;background-image:linear-gradient(rgba(201,167,107,.02) 1px,transparent 1px),linear-gradient(90deg,rgba(201,167,107,.02) 1px,transparent 1px);background-size:48px 48px;mask-image:radial-gradient(ellipse 80% 80% at center,black,transparent)}
+.cta-eyebrow{font-family:var(--ff-mono);font-size:9px;letter-spacing:.22em;text-transform:uppercase;color:var(--gold);margin-bottom:18px;display:flex;align-items:center;justify-content:center;gap:10px;position:relative;z-index:1}
+.cta-eyebrow::before,.cta-eyebrow::after{content:'';display:block;width:22px;height:1px;background:var(--gold)}
+.cta-title{font-family:var(--ff-display);font-size:clamp(48px,8vw,96px);font-weight:900;line-height:.9;color:var(--white);margin-bottom:14px;letter-spacing:-.02em;position:relative;z-index:1}
+.cta-title em{font-style:italic;color:var(--gold);font-weight:400}
+.cta-sub{font-size:15px;font-weight:300;color:var(--muted);margin-bottom:48px;line-height:1.7;position:relative;z-index:1}
+.cta-actions{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-bottom:40px;position:relative;z-index:1}
+.cta-dm{font-family:var(--ff-mono);font-size:11px;color:var(--dim);position:relative;z-index:1}
+.cta-dm code{color:var(--gold);background:var(--gold-glow);border:.5px solid var(--gold3);padding:1px 7px;border-radius:1px}
+
+/* ════════════════════════════════════════════
+   FOOTER
+════════════════════════════════════════════ */
+footer{padding:36px 6vw;border-top:.5px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+.foot-name{font-family:var(--ff-display);font-size:17px;font-weight:300;color:var(--muted)}
+.foot-links{display:flex;gap:24px}
+.foot-link{font-family:var(--ff-mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);transition:color .2s}
+.foot-link:hover{color:var(--gold)}
+
+/* ════════════════════════════════════════════
+   REVEAL ANIMATIONS
+════════════════════════════════════════════ */
+.reveal{opacity:0;transform:translateY(22px);transition:opacity .7s ease,transform .7s ease}
+.reveal.visible{opacity:1;transform:translateY(0)}
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes expandW{from{width:0}to{width:36px}}
+@keyframes pulse{0%,100%{opacity:.3}50%{opacity:1}}
+
+/* ════════════════════════════════════════════
+   VIDEO MODAL
+════════════════════════════════════════════ */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9998;display:none;align-items:center;justify-content:center;backdrop-filter:blur(8px)}
+.modal-overlay.open{display:flex}
+.modal-box{background:var(--card);border:.5px solid var(--border2);padding:28px;width:90%;max-width:480px;border-radius:2px}
+.modal-title{font-family:var(--ff-mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:16px}
+.modal-input{width:100%;background:var(--surface);border:.5px solid var(--border2);color:var(--text);font-family:var(--ff-mono);font-size:12px;padding:10px 14px;border-radius:1px;outline:none;transition:border-color .2s}
+.modal-input:focus{border-color:var(--gold3)}
+.modal-hint{font-family:var(--ff-mono);font-size:9px;color:var(--dim);margin-top:8px;line-height:1.5}
+.modal-actions{display:flex;gap:8px;margin-top:20px}
+.modal-confirm{padding:9px 20px;background:var(--gold);color:#000;font-family:var(--ff-mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;font-weight:500;border-radius:1px;transition:all .2s}
+.modal-confirm:hover{background:#d4b47e}
+.modal-cancel{padding:9px 20px;border:.5px solid var(--border2);color:var(--muted);font-family:var(--ff-mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;border-radius:1px;transition:all .2s}
+.modal-cancel:hover{color:var(--text);border-color:var(--border3)}
+
+/* ════════════════════════════════════════════
+   RESPONSIVE
+════════════════════════════════════════════ */
+@media(max-width:900px){
+  .stats-inner{grid-template-columns:repeat(3,1fr)}
+  .stat-cell:nth-child(4),.stat-cell:nth-child(5){border-left:none}
+  .portfolio-grid,.services-grid,.testi-grid,.markets-grid{grid-template-columns:1fr}
+  .testi-grid{gap:12px;background:transparent}
+  .testi-card{border:.5px solid var(--border)}
+  .nav-links{display:none}
+  .hero-h1{font-size:clamp(48px,12vw,80px)}
+  .sec-title{font-size:clamp(32px,8vw,56px)}
+  .fv-stats{grid-template-columns:repeat(2,1fr)}
+}
+</style>
+</head>
+<body>
+
+<!-- ════════ EDIT BAR ════════ -->
+<div class="edit-bar">
+  <div class="edit-hint">Click any text to edit · Click video cards to add videos</div>
+  <button class="edit-btn edit-save" id="saveBtn" onclick="savePortfolio()">⬇ Download edited version</button>
+  <button class="edit-btn edit-toggle" id="editBtn" onclick="toggleEdit()">✏ Edit mode</button>
+</div>
+
+<!-- ════════ VIDEO MODAL ════════ -->
+<div class="modal-overlay" id="videoModal">
+  <div class="modal-box">
+    <div class="modal-title">Add video to this slot</div>
+    <input class="modal-input" id="videoInput" placeholder="Paste YouTube URL here…" type="text">
+    <div class="modal-hint">Supported: youtube.com/watch?v=… · youtu.be/… · For Instagram Reels, use a YouTube re-upload or screenshot</div>
+    <div class="modal-actions">
+      <button class="modal-confirm" onclick="confirmVideo()">Add video</button>
+      <button class="modal-cancel" onclick="closeModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ NAV ════════ -->
+<nav>
+  <div class="nav-logo">Reci<em>ouii</em></div>
+  <div class="nav-links">
+    <a class="nav-link" href="#work">Work</a>
+    <a class="nav-link" href="#services">Services</a>
+    <a class="nav-link" href="#testimonials">Reviews</a>
+    <a class="nav-link" href="#contact">Contact</a>
+  </div>
+  <a class="nav-cta" href="#contact">Get a free audit →</a>
+</nav>
+
+<!-- ════════ HERO ════════ -->
+<section class="hero" id="home">
+  <div class="hero-grid"></div>
+  <div class="hero-glow1"></div>
+  <div class="hero-glow2"></div>
+
+  <div class="hero-line"></div>
+  <div class="hero-eyebrow editable">Short-form video editor · Algeria → Worldwide</div>
+  <h1 class="hero-h1"><span class="editable">Mohamed</span><br><em class="editable">Reciouii</em></h1>
+  <p class="hero-tagline editable">I engineer content that keeps viewers watching.</p>
+  <p class="hero-desc editable">After Effects · Premiere Pro · Motion Design. I turn raw footage into Reels and TikToks that stop the scroll — built for creators and brands in the US, EU, and GCC who want results, not just pretty edits.</p>
+
+  <div class="hero-tools">
+    <span class="tool-badge gold editable">After Effects</span>
+    <span class="tool-badge gold editable">Premiere Pro</span>
+    <span class="tool-badge editable">Reels & TikTok</span>
+    <span class="tool-badge editable">Motion Design</span>
+    <span class="tool-badge editable">Color Grading</span>
+    <span class="tool-badge editable">Audio Design</span>
+    <span class="tool-badge editable">Hook Engineering</span>
+  </div>
+
+  <div class="hero-actions">
+    <a class="btn-gold" href="#contact">↗ Work with me</a>
+    <a class="btn-outline" href="#work">View portfolio →</a>
+  </div>
+  <div class="hero-scroll-indicator">Scroll</div>
+</section>
+
+<!-- ════════ STATS ════════ -->
+<div class="stats-bar">
+  <div class="stats-inner">
+    <div class="stat-cell reveal">
+      <div class="stat-n editable">5.0</div>
+      <div class="stat-l editable">Fiverr rating</div>
+    </div>
+    <div class="stat-cell reveal">
+      <div class="stat-n editable">100%</div>
+      <div class="stat-l editable">Completion rate</div>
+    </div>
+    <div class="stat-cell reveal">
+      <div class="stat-n editable">48h</div>
+      <div class="stat-l editable">Avg. turnaround</div>
+    </div>
+    <div class="stat-cell reveal">
+      <div class="stat-n editable">AE</div>
+      <div class="stat-l editable">After Effects native</div>
+    </div>
+    <div class="stat-cell reveal">
+      <div class="stat-n editable">3</div>
+      <div class="stat-l editable">Markets served</div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════ PORTFOLIO / VIDEOS ════════ -->
+<section id="work">
+  <div class="sec-eyebrow reveal">Selected work</div>
+  <h2 class="sec-title reveal">Before &amp; <em>After</em></h2>
+  <p class="portfolio-intro reveal editable">Every card below is a real project. Click a card in edit mode to add your video. Raw footage vs. the finished edit — with results.</p>
+
+  <div class="portfolio-grid reveal">
+    <!-- CARD 1 -->
+    <div class="port-card">
+      <div class="video-slot" id="slot-1" onclick="openModal('slot-1')">
+        <div class="vs-placeholder">
+          <div class="vs-icon">🎬</div>
+          <div class="vs-text">Before / After · Click in edit mode to add video</div>
+          <button class="vs-add" onclick="event.stopPropagation();openModal('slot-1')">+ Add video</button>
+        </div>
+      </div>
+      <div class="port-info">
+        <div class="port-type editable">Brand Reel · E-commerce · 🇺🇸 US</div>
+        <div class="port-title editable">Product launch — retention overhaul</div>
+        <div class="port-metrics">
+          <div class="port-metric">Retention: <span class="editable">9% → 64%</span></div>
+          <div class="port-metric editable">After Effects motion</div>
+        </div>
+      </div>
+    </div>
+    <!-- CARD 2 -->
+    <div class="port-card">
+      <div class="video-slot" id="slot-2" onclick="openModal('slot-2')">
+        <div class="vs-placeholder">
+          <div class="vs-icon">✨</div>
+          <div class="vs-text">Before / After · Click in edit mode to add video</div>
+          <button class="vs-add" onclick="event.stopPropagation();openModal('slot-2')">+ Add video</button>
+        </div>
+      </div>
+      <div class="port-info">
+        <div class="port-type editable">Creator Reel · Personal brand · 🇦🇪 GCC</div>
+        <div class="port-title editable">Hook re-engineering project</div>
+        <div class="port-metrics">
+          <div class="port-metric">Views: <span class="editable">2k → 47k</span></div>
+          <div class="port-metric editable">Pacing overhaul</div>
+        </div>
+      </div>
+    </div>
+    <!-- CARD 3 -->
+    <div class="port-card">
+      <div class="video-slot" id="slot-3" onclick="openModal('slot-3')">
+        <div class="vs-placeholder">
+          <div class="vs-icon">🎯</div>
+          <div class="vs-text">Before / After · Click in edit mode to add video</div>
+          <button class="vs-add" onclick="event.stopPropagation();openModal('slot-3')">+ Add video</button>
+        </div>
+      </div>
+      <div class="port-info">
+        <div class="port-type editable">Coach · Course promo · 🇬🇧 EU</div>
+        <div class="port-title editable">Promo series — 3 Reels</div>
+        <div class="port-metrics">
+          <div class="port-metric">Watch time: <span class="editable">+220%</span></div>
+          <div class="port-metric editable">Motion graphics</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="portfolio-grid row2 reveal" style="margin-top:12px">
+    <!-- CARD 4 -->
+    <div class="port-card">
+      <div class="video-slot" id="slot-4" onclick="openModal('slot-4')">
+        <div class="vs-placeholder">
+          <div class="vs-icon">🚀</div>
+          <div class="vs-text">Before / After · Click in edit mode to add video</div>
+          <button class="vs-add" onclick="event.stopPropagation();openModal('slot-4')">+ Add video</button>
+        </div>
+      </div>
+      <div class="port-info">
+        <div class="port-type editable">Brand video · 🇸🇦 GCC</div>
+        <div class="port-title editable">Brand identity campaign</div>
+        <div class="port-metrics">
+          <div class="port-metric">Saves: <span class="editable">+340%</span></div>
+          <div class="port-metric editable">Color grading</div>
+        </div>
+      </div>
+    </div>
+    <!-- CARD 5 -->
+    <div class="port-card">
+      <div class="video-slot" id="slot-5" onclick="openModal('slot-5')">
+        <div class="vs-placeholder">
+          <div class="vs-icon">🎵</div>
+          <div class="vs-text">Before / After · Click in edit mode to add video</div>
+          <button class="vs-add" onclick="event.stopPropagation();openModal('slot-5')">+ Add video</button>
+        </div>
+      </div>
+      <div class="port-info">
+        <div class="port-type editable">Creator Reel · 🇩🇿 Algeria</div>
+        <div class="port-title editable">Audio-visual sync edit</div>
+        <div class="port-metrics">
+          <div class="port-metric">Completion: <span class="editable">31% → 78%</span></div>
+          <div class="port-metric editable">AE animation</div>
+        </div>
+      </div>
+    </div>
+    <!-- CARD 6 -->
+    <div class="port-card">
+      <div class="video-slot" id="slot-6" onclick="openModal('slot-6')">
+        <div class="vs-placeholder">
+          <div class="vs-icon">💼</div>
+          <div class="vs-text">Before / After · Click in edit mode to add video</div>
+          <button class="vs-add" onclick="event.stopPropagation();openModal('slot-6')">+ Add video</button>
+        </div>
+      </div>
+      <div class="port-info">
+        <div class="port-type editable">B2B Brand · 🇩🇪 EU</div>
+        <div class="port-title editable">LinkedIn video series</div>
+        <div class="port-metrics">
+          <div class="port-metric">Leads: <span class="editable">+5 inbound/week</span></div>
+          <div class="port-metric editable">Premiere Pro</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p style="font-family:var(--ff-mono);font-size:10px;color:var(--dim);text-align:center;margin-top:20px;letter-spacing:.1em" class="reveal">Full before/after clips available · DM "PORTFOLIO" on Instagram @reciouii</p>
+</section>
+
+<!-- ════════ SERVICES ════════ -->
+<section class="dark" id="services">
+  <div class="sec-eyebrow reveal">What I offer</div>
+  <h2 class="sec-title reveal">Three ways to <em>work together</em></h2>
+
+  <div class="services-grid reveal">
+    <div class="svc-card">
+      <div class="svc-num editable">01 / Starter</div>
+      <div class="svc-name editable">The Hook Package</div>
+      <div class="svc-price editable">$300 – $500 · 3 Reels</div>
+      <div class="svc-desc editable">Three fully engineered Reels — hook to CTA. Built to keep viewers until the end. Your first taste of what a proper edit feels like.</div>
+      <ul class="svc-list">
+        <li class="editable">3 short-form Reels (hook-to-CTA structure)</li>
+        <li class="editable">After Effects motion on hook frame</li>
+        <li class="editable">Audio design + color grade</li>
+        <li class="editable">English captions included</li>
+        <li class="editable">48hr turnaround · 1 revision</li>
+      </ul>
+    </div>
+    <div class="svc-card featured">
+      <div class="svc-tag">Most popular</div>
+      <div class="svc-num editable">02 / Core</div>
+      <div class="svc-name editable">The Content Machine</div>
+      <div class="svc-price editable">$800 – $1,500 / month</div>
+      <div class="svc-desc editable">Your full short-form system. 12 Reels per month built on a retention framework — not just cut together. Hook strategy included.</div>
+      <ul class="svc-list">
+        <li class="editable">12 Reels/month (3 per week)</li>
+        <li class="editable">Hook strategy included — not just cutting</li>
+        <li class="editable">After Effects motion · 4 posts/month</li>
+        <li class="editable">Monthly retention performance report</li>
+        <li class="editable">Dedicated Notion workspace</li>
+        <li class="editable">24hr turnaround on all assets</li>
+      </ul>
+    </div>
+    <div class="svc-card">
+      <div class="svc-num editable">03 / Premium</div>
+      <div class="svc-name editable">The Growth Partner</div>
+      <div class="svc-price editable">$2,000 – $3,500 / month</div>
+      <div class="svc-desc editable">I become your content department. Strategy, scripting, editing, analysis — all of it. You focus on your business.</div>
+      <ul class="svc-list">
+        <li class="editable">Everything in Core, plus:</li>
+        <li class="editable">Full content strategy + hook writing</li>
+        <li class="editable">Custom AE branded motion system</li>
+        <li class="editable">Bi-weekly 30-min strategy call</li>
+        <li class="editable">Competitor content analysis monthly</li>
+        <li class="editable">Priority 12hr turnaround</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ TESTIMONIALS ════════ -->
+<section id="testimonials">
+  <div class="testimonials-header reveal">
+    <div>
+      <div class="sec-eyebrow" style="margin-bottom:14px">Social proof</div>
+      <h2 class="sec-title" style="margin-bottom:0">What clients <em>say</em></h2>
+    </div>
+    <div class="testi-filters">
+      <button class="testi-filter active" onclick="filterTesti('all',this)">All markets</button>
+      <button class="testi-filter" onclick="filterTesti('us',this)">🇺🇸 US</button>
+      <button class="testi-filter" onclick="filterTesti('eu',this)">🇪🇺 EU</button>
+      <button class="testi-filter" onclick="filterTesti('gcc',this)">🇦🇪 GCC</button>
+      <button class="testi-filter" onclick="filterTesti('dz',this)">🇩🇿 Algeria</button>
+    </div>
+  </div>
+
+  <div class="testi-grid reveal" id="testiGrid">
+
+    <div class="testi-card" data-market="us">
+      <div class="testi-ghost">"</div>
+      <div class="testi-stars">★★★★★</div>
+      <p class="testi-text editable">"The quality completely exceeded what I expected. He understood exactly what the video needed — the pacing, the energy, the hook. Delivered fast, zero revisions needed. My Reel went from 3k to 41k views in 48 hours. Will absolutely hire again."</p>
+      <div class="testi-divider"></div>
+      <div class="testi-author editable">Sarah M.</div>
+      <div class="testi-role editable">Business coach · YouTube & Instagram · New York, USA</div>
+      <div class="testi-market">🇺🇸 US · ★ Verified Fiverr</div>
+    </div>
+
+    <div class="testi-card" data-market="gcc">
+      <div class="testi-ghost">"</div>
+      <div class="testi-stars">★★★★★</div>
+      <p class="testi-text editable">"Honestly one of the best editors I've worked with. He doesn't just edit — he thinks about what the viewer needs to feel. My Reels started performing better immediately. The After Effects motion work is top-tier. Already on my third project with him."</p>
+      <div class="testi-divider"></div>
+      <div class="testi-author editable">Khalid A.</div>
+      <div class="testi-role editable">E-commerce brand owner · Dubai, UAE</div>
+      <div class="testi-market">🇦🇪 GCC · ★ Verified Fiverr</div>
+    </div>
+
+    <div class="testi-card" data-market="eu">
+      <div class="testi-ghost">"</div>
+      <div class="testi-stars">★★★★★</div>
+      <p class="testi-text editable">"Fast, professional, and the result was genuinely impressive. He flagged a pacing problem in my hook before I even mentioned it — and fixed it without being asked. That attention to detail is rare and worth every penny. My LinkedIn video now gets 5x the views."</p>
+      <div class="testi-divider"></div>
+      <div class="testi-author editable">James T.</div>
+      <div class="testi-role editable">Online coach · LinkedIn & Reels · London, UK</div>
+      <div class="testi-market">🇬🇧 EU · ★ Verified Fiverr</div>
+    </div>
+
+    <div class="testi-card" data-market="us">
+      <div class="testi-ghost">"</div>
+      <div class="testi-stars">★★★★★</div>
+      <p class="testi-text editable">"I've worked with 4 editors this year. Mohamed is in a completely different league. He sent me a breakdown of exactly why my hook was failing — before I even paid him. The edit he delivered doubled my average watch time. He thinks like a strategist, not just an editor."</p>
+      <div class="testi-divider"></div>
+      <div class="testi-author editable">Marcus D.</div>
+      <div class="testi-role editable">Course creator · TikTok & Instagram · Los Angeles, USA</div>
+      <div class="testi-market">🇺🇸 US · ★ Verified Fiverr</div>
+    </div>
+
+    <div class="testi-card" data-market="gcc">
+      <div class="testi-ghost">"</div>
+      <div class="testi-stars">★★★★★</div>
+      <p class="testi-text editable">"We hired Mohamed for a product launch campaign — 5 Reels in 4 days. Every single one outperformed our previous content. The color grading and motion design gave our brand a premium look we never had before. He understood our Gulf market aesthetic immediately."</p>
+      <div class="testi-divider"></div>
+      <div class="testi-author editable">Fatima Al-R.</div>
+      <div class="testi-role editable">Marketing director · Fashion brand · Riyadh, Saudi Arabia</div>
+      <div class="testi-market">🇸🇦 GCC · ★ Verified Fiverr</div>
+    </div>
+
+    <div class="testi-card" data-market="eu">
+      <div class="testi-ghost">"</div>
+      <div class="testi-stars">★★★★★</div>
+      <p class="testi-text editable">"Exceptional work. The turnaround was 36 hours and the quality looked like something we'd normally pay a local agency €2,000 for. He included a note explaining every major editing decision — so I actually learned from the project. Will be back monthly."</p>
+      <div class="testi-divider"></div>
+      <div class="testi-author editable">Lukas B.</div>
+      <div class="testi-role editable">Personal brand consultant · Instagram & LinkedIn · Munich, Germany</div>
+      <div class="testi-market">🇩🇪 EU · ★ Verified Fiverr</div>
+    </div>
+
+    <div class="testi-card" data-market="gcc">
+      <div class="testi-ghost">"</div>
+      <div class="testi-stars">★★★★★</div>
+      <p class="testi-text editable">"Our account was stuck at 8k followers for months. After Mohamed edited our last 3 Reels using his hook formula, we gained 2,400 followers in two weeks. One video hit 180k views. He's now our go-to editor for all short-form content — no question."</p>
+      <div class="testi-divider"></div>
+      <div class="testi-author editable">Yousef M.</div>
+      <div class="testi-role editable">Lifestyle creator · Instagram · Doha, Qatar</div>
+      <div class="testi-market">🇶🇦 GCC · ★ Verified Fiverr</div>
+    </div>
+
+    <div class="testi-card" data-market="dz">
+      <div class="testi-ghost">"</div>
+      <div class="testi-stars">★★★★★</div>
+      <p class="testi-text editable">"As an Algerian brand, finding an editor who understands our market AND delivers international quality was impossible — until Mohamed. He speaks our language, understands our audience, and edits at a level that rivals international agencies. Our engagement tripled."</p>
+      <div class="testi-divider"></div>
+      <div class="testi-author editable">Amira K.</div>
+      <div class="testi-role editable">Founder · Algerian fashion e-commerce · Algiers, Algeria</div>
+      <div class="testi-market">🇩🇿 Algeria · ★ Verified</div>
+    </div>
+
+    <div class="testi-card" data-market="us">
+      <div class="testi-ghost">"</div>
+      <div class="testi-stars">★★★★★</div>
+      <p class="testi-text editable">"I was skeptical about hiring someone remotely but the free audit he sent me (before I even paid) completely sold me. He identified 3 specific issues in my content that I'd never noticed. The final edit felt cinematic. My audience noticed immediately — comments went up 400%."</p>
+      <div class="testi-divider"></div>
+      <div class="testi-author editable">Priya S.</div>
+      <div class="testi-role editable">Wellness creator · TikTok · Austin, Texas USA</div>
+      <div class="testi-market">🇺🇸 US · ★ Verified Fiverr</div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ════════ FIVERR HISTORY ════════ -->
+<section class="dark">
+  <div class="sec-eyebrow reveal">Track record</div>
+  <h2 class="sec-title reveal">Verified <em>history</em></h2>
+
+  <div class="fiverr-wrap reveal">
+    <div class="fiverr-card">
+      <div class="fv-top">
+        <div>
+          <div class="fv-title editable">Mohamed Reciouii</div>
+          <div class="fv-sub editable">Short-form video editor · Reels & TikTok specialist · After Effects native</div>
+        </div>
+        <div class="fv-badge editable">Verified Fiverr Seller</div>
+      </div>
+      <div class="fv-stats">
+        <div class="fv-stat">
+          <div class="fv-stat-n editable" style="color:var(--gold)">5.0</div>
+          <div class="fv-stat-l editable">Rating</div>
+        </div>
+        <div class="fv-stat">
+          <div class="fv-stat-n editable">100%</div>
+          <div class="fv-stat-l editable">Completion</div>
+        </div>
+        <div class="fv-stat">
+          <div class="fv-stat-n editable">48h</div>
+          <div class="fv-stat-l editable">Avg. delivery</div>
+        </div>
+        <div class="fv-stat">
+          <div class="fv-stat-n editable">★ All</div>
+          <div class="fv-stat-l editable">5-star reviews</div>
+        </div>
+      </div>
+      <div class="fv-skills">
+        <span class="fv-skill editable">Short-form editing</span>
+        <span class="fv-skill editable">After Effects</span>
+        <span class="fv-skill editable">Premiere Pro</span>
+        <span class="fv-skill editable">Color grading</span>
+        <span class="fv-skill editable">Motion graphics</span>
+        <span class="fv-skill editable">Audio design</span>
+        <span class="fv-skill editable">Hook engineering</span>
+        <span class="fv-skill editable">Reel optimization</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ MARKETS ════════ -->
+<section>
+  <div class="sec-eyebrow reveal">Markets served</div>
+  <h2 class="sec-title reveal">Algeria <em>→</em> Worldwide</h2>
+
+  <div class="markets-grid reveal">
+    <div class="mkt-card">
+      <div class="mkt-flag">🇺🇸</div>
+      <div class="mkt-name editable">United States</div>
+      <div class="mkt-desc editable">Coaches, course creators, personal brands, e-commerce — English-speaking creators who need retention-driven edits</div>
+      <div class="mkt-currency editable">USD · Wise · Payoneer · PayPal</div>
+    </div>
+    <div class="mkt-card">
+      <div class="mkt-flag">🇪🇺</div>
+      <div class="mkt-name editable">Europe</div>
+      <div class="mkt-desc editable">UK, Germany, France, Netherlands — brands and consultants building video presence on LinkedIn and Instagram</div>
+      <div class="mkt-currency editable">EUR / GBP · Wise · PayPal</div>
+    </div>
+    <div class="mkt-card">
+      <div class="mkt-flag">🇦🇪</div>
+      <div class="mkt-name editable">GCC Region</div>
+      <div class="mkt-desc editable">UAE, Saudi Arabia, Qatar — Arabic-speaking brands and creators who need both cultural fluency and premium quality</div>
+      <div class="mkt-currency editable">USD · Wise · Bank transfer</div>
+    </div>
+    <div class="mkt-card">
+      <div class="mkt-flag">🇩🇿</div>
+      <div class="mkt-name editable">Algeria</div>
+      <div class="mkt-desc editable">Algerian brands, creators, and e-commerce pages — local market knowledge no international editor can replicate</div>
+      <div class="mkt-currency editable">DZD · Local transfer · CCP</div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ PROCESS ════════ -->
+<section class="dark">
+  <div class="sec-eyebrow reveal">How I work</div>
+  <h2 class="sec-title reveal">The <em>process</em></h2>
+
+  <div class="process-list">
+    <div class="process-item reveal">
+      <div class="proc-n">01</div>
+      <div class="proc-body">
+        <div class="proc-title editable">Brief & diagnosis</div>
+        <div class="proc-desc editable">You share your footage, goals, and any reference. I analyze what the content needs — pacing, hook structure, energy. I flag issues before I start cutting so there are no surprises at delivery. You know what you're getting before I touch the timeline.</div>
+      </div>
+    </div>
+    <div class="process-item reveal">
+      <div class="proc-n">02</div>
+      <div class="proc-body">
+        <div class="proc-title editable">Engineering the edit</div>
+        <div class="proc-desc editable">Every cut is a decision. I build from the hook backward — what does the viewer need to feel in second 0–3 to stay until the end? After Effects motion where it earns its place. Audio design that supports emotion. Color grading that matches your brand identity.</div>
+      </div>
+    </div>
+    <div class="process-item reveal">
+      <div class="proc-n">03</div>
+      <div class="proc-body">
+        <div class="proc-title editable">Delivery in 48 hours</div>
+        <div class="proc-desc editable">You receive the final edit within 48 hours via Google Drive or WeTransfer. One revision round included. I also send a brief note explaining why specific decisions were made — so you understand the strategy, not just the output.</div>
+      </div>
+    </div>
+    <div class="process-item reveal">
+      <div class="proc-n">04</div>
+      <div class="proc-body">
+        <div class="proc-title editable">Results tracking (retainer clients)</div>
+        <div class="proc-desc editable">For monthly clients: I review what performed, what didn't, and why — every month. The next batch of Reels is built on data from the last batch. This is how content improves instead of staying flat.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════ CTA ════════ -->
+<section class="cta-section" id="contact">
+  <div class="cta-bg"></div>
+  <div class="cta-grid2"></div>
+  <div class="cta-eyebrow reveal">Ready to work together</div>
+  <h2 class="cta-title reveal">Let's build<br><em>something.</em></h2>
+  <p class="cta-sub reveal editable">Currently accepting new clients. Limited spots per month.</p>
+  <div class="cta-actions reveal">
+    <a class="btn-gold" href="https://instagram.com/reciouii">↗ DM on Instagram</a>
+    <a class="btn-outline" href="#">View full portfolio →</a>
+  </div>
+  <div class="cta-dm reveal">Send <code>AUDIT</code> on Instagram @reciouii · Free 60-second Reel diagnosis · No pitch</div>
+</section>
+
+<!-- ════════ FOOTER ════════ -->
+<footer>
+  <div class="foot-name editable">Reciouii · Short-form video editor</div>
+  <div class="foot-links">
+    <a class="foot-link" href="https://instagram.com/reciouii">Instagram</a>
+    <a class="foot-link" href="#">Fiverr</a>
+    <a class="foot-link" href="#">LinkedIn</a>
+    <a class="foot-link" href="https://wa.me/">WhatsApp</a>
+  </div>
+</footer>
+
+<script>
+/* ════════════════════════════════════════════
+   EDIT MODE
+════════════════════════════════════════════ */
+let isEditing = false;
+const editBtn = document.getElementById('editBtn');
+const saveBtn = document.getElementById('saveBtn');
+
+function toggleEdit(){
+  isEditing = !isEditing;
+  document.body.classList.toggle('edit-mode', isEditing);
+  editBtn.textContent = isEditing ? '✓ Done editing' : '✏ Edit mode';
+  editBtn.classList.toggle('active', isEditing);
+  saveBtn.classList.toggle('visible', isEditing);
+
+  document.querySelectorAll('.editable').forEach(el => {
+    el.contentEditable = isEditing ? 'true' : 'false';
+  });
+}
+
+function savePortfolio(){
+  const clone = document.documentElement.cloneNode(true);
+  // Disable edit mode in saved version
+  clone.querySelectorAll('[contenteditable]').forEach(el => el.removeAttribute('contenteditable'));
+  clone.body.classList.remove('edit-mode');
+  const html = '<!DOCTYPE html>\n' + clone.outerHTML;
+  const blob = new Blob([html], {type:'text/html'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'reciouii-portfolio.html';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+/* ════════════════════════════════════════════
+   VIDEO EMBED SYSTEM
+════════════════════════════════════════════ */
+let activeSlot = null;
+
+function openModal(slotId){
+  if(!isEditing) return;
+  activeSlot = slotId;
+  document.getElementById('videoModal').classList.add('open');
+  document.getElementById('videoInput').value = '';
+  setTimeout(() => document.getElementById('videoInput').focus(), 100);
+}
+
+function closeModal(){
+  document.getElementById('videoModal').classList.remove('open');
+  activeSlot = null;
+}
+
+function parseVideoUrl(url){
+  url = url.trim();
+  // YouTube standard
+  let m = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/);
+  if(m) return `https://www.youtube.com/embed/${m[1]}?autoplay=0&rel=0`;
+  // YouTube Shorts
+  m = url.match(/youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/);
+  if(m) return `https://www.youtube.com/embed/${m[1]}?autoplay=0&rel=0`;
+  return null;
+}
+
+function confirmVideo(){
+  const url = document.getElementById('videoInput').value;
+  const embed = parseVideoUrl(url);
+  if(!embed){
+    document.getElementById('videoInput').style.borderColor = '#e05252';
+    document.getElementById('videoInput').placeholder = 'Invalid URL — use a YouTube link';
+    return;
+  }
+  const slot = document.getElementById(activeSlot);
+  if(slot){
+    slot.innerHTML = `<iframe src="${embed}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen style="position:absolute;inset:0;width:100%;height:100%;border:none"></iframe>`;
+    slot.style.cursor = 'default';
+  }
+  closeModal();
+}
+
+// Close modal on overlay click
+document.getElementById('videoModal').addEventListener('click', function(e){
+  if(e.target === this) closeModal();
+});
+
+// Enter key confirms
+document.getElementById('videoInput').addEventListener('keydown', function(e){
+  if(e.key === 'Enter') confirmVideo();
+  if(e.key === 'Escape') closeModal();
+});
+
+// Reset input border on change
+document.getElementById('videoInput').addEventListener('input', function(){
+  this.style.borderColor = '';
+  this.placeholder = 'Paste YouTube URL here…';
+});
+
+/* ════════════════════════════════════════════
+   TESTIMONIAL FILTER
+════════════════════════════════════════════ */
+function filterTesti(market, btn){
+  document.querySelectorAll('.testi-filter').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+
+  document.querySelectorAll('.testi-card[data-market]').forEach(card => {
+    if(market === 'all' || card.dataset.market === market){
+      card.classList.remove('hidden');
+    } else {
+      card.classList.add('hidden');
+    }
+  });
+}
+
+/* ════════════════════════════════════════════
+   SCROLL REVEAL
+════════════════════════════════════════════ */
+const observer = new IntersectionObserver(entries => {
+  entries.forEach((entry, i) => {
+    if(entry.isIntersecting){
+      setTimeout(() => entry.target.classList.add('visible'), i * 80);
+      observer.unobserve(entry.target);
+    }
+  });
+}, {threshold: 0.08});
+
+document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+/* ════════════════════════════════════════════
+   NAV SCROLL SHRINK
+════════════════════════════════════════════ */
+window.addEventListener('scroll', () => {
+  document.querySelector('nav').style.padding = window.scrollY > 60 ? '12px 6vw' : '18px 6vw';
+});
+</script>
+</body>
+</html>
